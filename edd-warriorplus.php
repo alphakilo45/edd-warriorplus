@@ -31,7 +31,7 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
          */
         private static $instance;
 
-        const DEBUG = true;
+        const DEBUG = false;
 
         //////////////////
         // Constants
@@ -221,6 +221,9 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
 	        else if ($ipnKey == self::QVALUE_KEYGEN) {
 		        $this->processIPNRequest(true);
 	        }
+
+	        // Stop any further processing as we've handled everything
+	        exit;
         }
 
 
@@ -641,18 +644,6 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
                         }
                     }
 
-	                $this->debug('Testing...');
-	                $testPayment = new EDD_Payment();
-	                $testPayment->email = 'adam.kreiss@gmail.com';
-	                $test_download_args = array(
-		                'item_price' => 1.00
-	                );
-	                $testPayment->add_download(9, $test_download_args);
-	                $testPayment->save();
-	                $testPayment->status = 'complete';
-	                $testPayment->save();
-	                $this->debug('Testing done.');
-
 	                // Create the payment
 	                $payment = new EDD_Payment();
                     $payment->email = $email;
@@ -696,7 +687,7 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
                     edd_empty_cart();
                 } else if ($transactionType == self::QVALUE_REFUND) {
                     // Find the correct payment history post based on the WarriorPlus parent transaction ID
-                    $parentTranID = isset($_POST[self::QPARAM_PARENTTRANID]) ? $_POST[self::QPARAM_PARENTTRANID] : null;
+                    $parentTranID = isset($_POST[self::QPARAM_TRANID]) ? $_POST[self::QPARAM_TRANID] : null;
                     if ($parentTranID == null) {
                         return;
                     } else {
@@ -705,7 +696,7 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
                             'post_type'  => 'edd_payment',
                             'meta_query' => array(
                                 array(
-                                    'key'     => '_edd_dealguardian_tranid',
+                                    'key'     => '_edd_warriorplus_tranid1',
                                     'value'   => $parentTranID,
                                     'compare' => '='
                                 )
@@ -723,9 +714,6 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
                     }
                 }
             }
-
-            // Stop any further processing as we've handled everything
-            exit;
         }
 
 
