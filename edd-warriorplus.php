@@ -31,7 +31,7 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
          */
         private static $instance;
 
-        const DEBUG = false;
+        const DEBUG = true;
 
         //////////////////
         // Constants
@@ -448,7 +448,7 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
 	     *
 	     * @access      private
 	     * @since       1.0.0
-	     * @param       EDD_Payment $payment The payment the download was purchased under and the license is associated with
+	     * @param       int $payment The payment the download was purchased under and the license is associated with
 	     * @param       string $name The name of the customer
 	     * @param       string $email The email address of the customer
 	     **/
@@ -460,7 +460,7 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
 			    $this->debug( 'Checking if need to echo license key' );
 
 			    $licensing   = EDD_Software_Licensing::instance();
-			    $licenseKeys = $licensing->get_licenses_of_purchase( $payment->ID );
+			    $licenseKeys = $licensing->get_licenses_of_purchase( $payment );
 
 			    // Only output a license key if the purchase resulted in one
 			    if ( ! empty( $licenseKeys ) && count( $licenseKeys ) > 0 ) {
@@ -644,44 +644,71 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
                         }
                     }
 
-	                // Create the payment
-	                $payment = new EDD_Payment();
-                    $payment->email = $email;
-	                $payment->first_name = $name;
-	                $payment->last_name = '';
-                    $payment->customer_id = $user != null ? $user->ID : '';
-	                $this->debug('User ID: ' . $payment->customer_id);
+	                // Set the user info on the purchase (potentially with the user we just created
+	                $user_info = array(
+		                'email'      => $email,
+		                'first_name' => $name,
+		                'last_name'  => '',
+		                'id'         => $user != null ? $user->ID : '',
+		                'discount'   => null
+	                );
 
 	                // If variable pricing is being used on the product then match on the package number as well for tracking purposes
-	                $download_args = array(
-                        'item_price' => $price
-                    );
-	                if (isset($_POST[self::QPARAM_PACKAGENUM])) {
-		                $edd_package_number = absint($_POST[self::QPARAM_PACKAGENUM]);
-		                $price_id = $edd_package_number - 1;
-                        $download_args['price_id'] = $price_id;
+	                $item_options = array();
+	                if ( isset( $_GET['edd_pn'] ) ) {
+		                $edd_package_number = absint( $_GET['edd_pn'] );
+		                $price_id           = $edd_package_number - 1;
+		                $item_options       = array( array( 'price_id' => $price_id ) );
 	                }
 
-	                $payment->add_download($productID, $download_args);
-                    if (get_query_var(self::QPARAM_LOGIPN) == 1) {
-                        $this->debug('Logging IPN URL');
-                        $payment->add_note('WarriorPlus POST URL: ' . print_r($_POST, true));
-                    }
+	                $cart_details[] = array(
+		                'id'          => $productID,
+		                'name'        => get_the_title( $productID ),
+		                'item_number' => array(
+			                'id'      => $productID,
+			                'options' => $item_options,
+		                ),
+		                'price'       => $price,
+		                'quantity'    => 1,
+		                'tax'         => 0,
+		                'in_bundle'   => 0
+	                );
 
-                    $id = $payment->save();
+	                $payment_data = array(
+		                'price'        => $price,
+		                'user_email'   => $email,
+		                'date'         => date( 'Y-m-d H:i:s', current_time( 'timestamp' ) ),
+		                'purchase_key' => strtolower( md5( uniqid() ) ),
+		                'currency'     => edd_get_currency(),
+		                'user_info'    => $user_info,
+		                'cart_details' => $cart_details,
+		                'status'       => 'pending',
+		                'downloads'    => array(
+			                'download' => array(
+				                'id' => $productID
+			                )
+		                )
+	                );
 
-	                $payment->update_meta('_edd_warriorplus_tranid', $tranID);
-	                $payment->update_meta('_edd_payment_transaction_id', $tranID);
+	                // Record the pending payment
+	                $this->debug( 'Inserting payment' );
+	                $payment = edd_insert_payment( $payment_data );
+	                $this->debug( 'Payment ID: ' . $payment );
+	                if ($payment) {
+		                update_post_meta( $payment, '_edd_warriorplus_tranid', $tranID );
+		                edd_set_payment_transaction_id( $payment, $tranID );
+		                edd_insert_payment_note( $payment, 'WarriorPlus Transaction ID: ' . $tranID );
 
-	                $newPayment = new EDD_Payment($id);
-	                $this->debug('User Info: ' . print_r($newPayment->user_info, false));
+		                if ( get_query_var( self::QPARAM_LOGIPN ) == 1 ) {
+			                edd_insert_payment_note( $payment, 'WarriorPlus POST URL: ' . print_r( $_POST, true ) );
+		                }
 
-	                $payment->status = 'complete';
-	                $payment->save();
+		                edd_update_payment_status( $payment, 'publish' );
 
-                    if ($echoLicenseKey) {
-                        $this->echoLicenseKey($payment, $name, $email);
-                    }
+		                if ( $echoLicenseKey ) {
+			                $this->echoLicenseKey( $payment, $name, $email );
+		                }
+	                }
 
                     // Empty the shopping cart
                     edd_empty_cart();
