@@ -723,7 +723,7 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
                             'post_type'  => 'edd_payment',
                             'meta_query' => array(
                                 array(
-                                    'key'     => '_edd_warriorplus_tranid1',
+                                    'key'     => '_edd_warriorplus_tranid',
                                     'value'   => $parentTranID,
                                     'compare' => '='
                                 )
