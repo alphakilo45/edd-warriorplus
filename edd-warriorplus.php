@@ -3,7 +3,7 @@
  * Plugin Name:     Easy Digital Downloads - WarriorPlus
  * Plugin URI:      https://caffeinepressmedia.com/downloads/easy-digital-downloads-warrior-plus/
  * Description:     Adds Warrior Plus / WSO integration to Easy Digital Downloads.
- * Version:         1.0.0
+ * Version:         1.0.1
  * Author:          Adam Kreiss
  * Author URI:      https://caffeinepressmedia.com
  * Text Domain:     edd-warriorplus
@@ -31,7 +31,7 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
          */
         private static $instance;
 
-        const DEBUG = true;
+        const DEBUG = false;
 
         //////////////////
         // Constants
@@ -217,13 +217,12 @@ if( !class_exists( 'EDD_WarriorPlus' ) ) {
             if ($ipnKey == self::QVALUE_IPN &&
                 (!$useKeyGen || $transactionType == self::QVALUE_REFUND)) {
                 $this->processIPNRequest(false);
+	            exit;
             }
 	        else if ($ipnKey == self::QVALUE_KEYGEN) {
 		        $this->processIPNRequest(true);
+		        exit;
 	        }
-
-	        // Stop any further processing as we've handled everything
-	        exit;
         }
 
 
